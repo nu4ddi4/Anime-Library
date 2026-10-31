@@ -67,6 +67,10 @@ for (const details of document.querySelectorAll("details")) {
 
 const DATA = JSON.parse(document.getElementById("dataset").textContent);
 const CHANGES = JSON.parse(document.getElementById("changelog").textContent);
+const ENTRY_REVIEWS = new Map(
+  JSON.parse(document.getElementById("entry-reviews")?.textContent || "[]")
+    .map(review => [review.rank, review]),
+);
 const $ = (id) => document.getElementById(id);
 const norm = (value) =>
   value
@@ -94,7 +98,7 @@ const GENRES = [
 const STORAGE_KEY = "manga-shelf-favorites-v1";
 const PAGE_SIZE = 24;
 const knownRanks = new Set(DATA.map((row) => row.rank));
-const FILTER_IDS = ["query", "original", "start", "genre", "verification"];
+const FILTER_IDS = ["query", "original", "start", "genre", "access", "verification"];
 const isUncertain = (row) =>
   ["국내 정발 미확인", "작품 특정 불가", "미검증"].includes(row.check);
 const starIcon =
@@ -106,6 +110,7 @@ let view = "all";
 let visibleLimit = PAGE_SIZE;
 let timer;
 let undoAction;
+let pickedWork = null;
 const expanded = new Set();
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -132,7 +137,22 @@ $("verification").options[2].textContent =
 $("verification").options[3].textContent =
   `매체 대조 (${DATA.filter((r) => r.mediumCheck === "대조").length}편)`;
 $("verification").options[4].textContent =
-  `추가 확인 · 보류 (${DATA.filter(isUncertain).length}편)`;
+  `작품·정발 추가 확인 (${DATA.filter(isUncertain).length}편)`;
+$("verification").options[5].textContent =
+  `입문 검토 기록 있는 작품 (${ENTRY_REVIEWS.size}편)`;
+for (const [kind, label] of [["book", "서점"], ["watch", "OTT"]]) {
+  const group = document.createElement("optgroup");
+  group.label = label;
+  const services = [...new Set(DATA.flatMap(r => (r.access || [])
+    .filter(link => link.kind === kind).map(link => link.service)))];
+  for (const service of services) {
+    const option = document.createElement("option");
+    option.value = `service:${service}`;
+    option.textContent = `${service} 작품 페이지`;
+    group.append(option);
+  }
+  $("access").append(group);
+}
 const mobile = matchMedia("(max-width:740px)");
 function updateFilterPanel() {
   setDisclosureOpen($("filterPanel"), !mobile.matches, false);
@@ -174,13 +194,13 @@ function saveFavorites() {
   }
 }
 function matching(ignoreGenre = false) {
-  const q = norm($("query").value);
+  const terms = $("query").value.trim().split(/\s+/).map(norm).filter(Boolean);
+  const access = $("access").value;
   return DATA.filter(
     (r) =>
-      (!q ||
-        [r.title, ...r.aliases, ...r.genres, ...(r.tags || [])].some((s) =>
-          norm(s).includes(q),
-        )) &&
+      terms.every(term => [r.title, ...r.aliases, ...r.genres, ...(r.tags || []),
+        r.original, r.start, ...(r.access || []).map(link => link.service)]
+        .some(value => norm(value).includes(term))) &&
       (!$("original").value || r.original === $("original").value) &&
       (!$("start").value || r.start === $("start").value) &&
       (ignoreGenre ||
@@ -188,6 +208,8 @@ function matching(ignoreGenre = false) {
         r.genres.includes($("genre").value) ||
         ($("genre").value === "미확인" && !r.genres.length)) &&
       (view !== "favorites" || favorites.has(r.rank)) &&
+      (!access || (r.access || []).some(link => access.startsWith("service:")
+        ? link.service === access.slice(8) : link.kind === access)) &&
       (!$("verification").value ||
         ($("verification").value === "revised"
           ? ["표기 수정", "원작 수정"].includes(r.check)
@@ -195,7 +217,8 @@ function matching(ignoreGenre = false) {
             ? r.animeChecked
             : $("verification").value === "medium"
               ? r.mediumCheck === "대조"
-              : isUncertain(r))),
+              : $("verification").value === "reviewed"
+                ? ENTRY_REVIEWS.has(r.rank) : isUncertain(r))),
   );
 }
 function filtered() {
@@ -211,6 +234,7 @@ function activeFilters() {
     original: () => `${$("original").value} 원작`,
     start: () => `${$("start").value}부터 감상`,
     genre: () => $("genre").value,
+    access: () => $("access").selectedOptions[0].textContent,
     verification: () =>
       $("verification").selectedOptions[0].textContent.replace(/ \(.*?\)/g, ""),
   };
@@ -246,6 +270,11 @@ function updateControls(rows) {
   $("filterCount").textContent = filterCount ? `${filterCount}개 적용` : "";
   $("reset").disabled = !filters.length && $("sort").value === "rank";
   $("exportFavorites").disabled = !favorites.size;
+  $("pickWork").disabled = !rows.some(r => r.start !== "미확인" && r.original !== "미확인");
+  $("pickHelp").textContent = $("pickWork").disabled
+    ? rows.length ? "작품을 특정하지 못해 아직 한 편을 골라드릴 수 없어요." : "조건에 맞는 작품이 없어요. 검색이나 필터를 바꾸면 한 편을 골라드릴게요."
+    : view === "favorites" ? "현재 조건에 맞는 관심 작품 중 무작위로 골라요."
+      : "현재 조건에 맞는 작품 중 무작위로 골라요. 관심 목록에 없는 작품을 먼저 골라요.";
   const genreBase = matching(true);
   document.querySelectorAll("[data-genre]").forEach((b) => {
     const genre = b.dataset.genre;
@@ -272,6 +301,66 @@ function updateControls(rows) {
       ? `${rows.length}편 중 ${shown}편 표시`
       : `${rows.length}편 표시`;
 }
+function renderCover(r, extraClass = "") {
+  const cover = r.cover && document.body.dataset.offline !== "true" ? r.cover : null;
+  return `<span class="cover-slot ${extraClass}" aria-hidden="true"><span class="cover-fallback">${esc(r.original === "미확인" ? "?" : r.original)}</span>${cover ? `<img data-cover src="${esc(cover.image)}" alt="" width="44" height="62" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}</span>`;
+}
+// Missing or blocked remote artwork keeps the same-sized placeholder.
+document.addEventListener("error", event => {
+  if (event.target.matches?.("img[data-cover]")) event.target.remove();
+}, true);
+
+function renderEntryGuide(r) {
+  const review = ENTRY_REVIEWS.get(r.rank);
+  if (!review) return '<p class="entry-pending">잠정 입문 제안입니다. 매체별 비교 근거는 추가 확인 중이에요.</p>';
+  const label = review.status === "경합" ? "취향에 따라 갈려요" : "입문 검토 기록";
+  return `<section class="entry-guide" aria-label="${esc(r.title)} 입문 추천 이유"><div class="entry-heading"><h3>${esc(r.start)}부터 권하는 이유</h3><span>${label} · 신뢰도 ${esc(review.confidence)}</span></div><p>${esc(review.reason)}</p><p class="entry-scope"><strong>비교 범위</strong> ${esc(review.scope)}</p><p class="entry-counter"><strong>다른 매체가 나은 점</strong> ${esc(review.counter)}</p><p class="entry-scope"><strong>확인 범위·한계</strong> ${esc(review.limits)}</p><div class="entry-sources">${review.sources.map((url,i) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">근거 ${i+1} ↗</a>`).join("")}<span>문헌 검토 ${esc(review.checkedAt.replaceAll('-', '.'))} · 직접 전편 감상 아님</span></div></section>`;
+}
+
+function pickSignature() {
+  return JSON.stringify([view, ...FILTER_IDS.map(id => $(id).value)]);
+}
+function renderPick(rows) {
+  if (pickedWork && (pickedWork.signature !== pickSignature() || !rows.some(r => r.rank === pickedWork.rank))) pickedWork = null;
+  $("pickCard").hidden = !pickedWork;
+  if (!pickedWork) { $("pickCard").innerHTML = ""; return; }
+  const r = rows.find(row => row.rank === pickedWork.rank);
+  const review = ENTRY_REVIEWS.get(r.rank);
+  $("pickCard").innerHTML = `${renderCover(r, "pick-cover")}<div class="pick-copy"><p class="pick-eyebrow">${pickedWork.fresh && !favorites.has(r.rank) ? "아직 관심 목록에 없는 이야기" : "지금 조건에서 고른 이야기"}</p><h3>${esc(r.title)}</h3><p class="pick-meta">${esc(r.genres.join(' · '))} · ${esc(r.start)}부터</p>${review ? `<p class="pick-reason">${esc(review.reason)}</p>` : '<p class="pick-reason">입문 매체는 잠정 제안입니다. 작품 정보와 구매·시청 경로를 함께 확인해 보세요.</p>'}<div class="pick-card-actions"><button type="button" data-open-picked="${r.rank}">작품 · 입문 안내 보기 <span aria-hidden="true">↗</span></button><button type="button" data-dismiss-pick>닫기</button></div></div>`;
+}
+
+$("pickWork").addEventListener("click", () => {
+  const rows = filtered().filter(r => r.start !== "미확인" && r.original !== "미확인");
+  if (!rows.length) return;
+  const unseen = view === "all" ? rows.filter(r => !favorites.has(r.rank)) : [];
+  let pool = unseen.length ? unseen : rows;
+  const fresh = pool.filter(r => r.rank !== pickedWork?.rank);
+  if (fresh.length) pool = fresh;
+  const r = pool[Math.floor(Math.random() * pool.length)];
+  pickedWork = {rank:r.rank, signature:pickSignature(), fresh:unseen.length > 0};
+  renderPick(filtered());
+  $("live").textContent = `이번에 고른 작품은 ${r.title}, ${r.start}부터 감상하는 제안입니다.`;
+});
+$("pickCard").addEventListener("click", event => {
+  if (event.target.closest("[data-dismiss-pick]")) {
+    pickedWork = null;
+    renderPick(filtered());
+    $("pickWork").focus({preventScroll:true});
+    return;
+  }
+  const button = event.target.closest("[data-open-picked]");
+  if (!button) return;
+  const rank = Number(button.dataset.openPicked);
+  const index = filtered().findIndex(r => r.rank === rank);
+  if (index < 0) return;
+  visibleLimit = Math.max(visibleLimit, (Math.floor(index / PAGE_SIZE) + 1) * PAGE_SIZE);
+  expanded.add(rank);
+  render();
+  const title = $("results").querySelector(`[data-detail="${rank}"]`);
+  title.focus({preventScroll:true});
+  title.scrollIntoView({block:"center", behavior:reducedMotion.matches ? "instant" : "smooth"});
+});
+
 function renderAccess(r) {
   const routes = r.access || [];
   const title = encodeURIComponent(r.title);
@@ -285,16 +374,17 @@ function renderRow(r) {
   const fav = favorites.has(r.rank);
   const open = expanded.has(r.rank);
   return `<article class="row${open ? " is-open" : ""}" data-work-id="${r.rank}">
-    <span class="rank ${r.rank <= 10 ? "top" : ""}" title="원본 추천 순서">${String(r.rank).padStart(2, "0")}</span>
+    <div class="rank-cell">${renderCover(r)}<span class="rank ${r.rank <= 10 ? "top" : ""}" title="원본 추천 순서">${String(r.rank).padStart(2, "0")}</span></div>
     <div class="work-main"><button class="work-title" type="button" data-detail="${r.rank}" aria-expanded="${open}" aria-controls="detail-${r.rank}" aria-label="${esc(r.title)} 작품 정보"><span class="title">${esc(r.title)}</span>${chevron}</button><div class="sub"><span class="genre-tags">${esc(r.genres.length ? r.genres.join(" · ") : "분류 보류")}</span><span class="sub-separator medium-label" aria-hidden="true"></span><span class="medium-label">${esc(r.original)} 원작</span>${isUncertain(r) ? '<span class="status-uncertain">· 확인 보류</span>' : ""}</div></div>
     <span class="badge original">${esc(r.original)}</span><span class="badge start${r.start === "미확인" ? " unconfirmed" : ""}" aria-label="${esc(r.start)} 입문 추천">${r.start === "미확인" ? "미확인" : esc(r.start) + "부터"}</span>
     <button class="star" type="button" data-rank="${r.rank}" aria-pressed="${fav}" aria-label="${esc(r.title)} 관심 ${fav ? "해제" : "등록"}">${starIcon}</button>
-    <div class="work-detail" id="detail-${r.rank}"${open ? "" : " hidden"}><div class="detail-body"><div class="detail-heading"><span class="detail-label">자료 확인</span><span class="badge${isUncertain(r) ? " unconfirmed" : ""}">${esc(r.check)}</span>${r.animeChecked ? '<span class="badge start">애니 공식 자료 확인</span>' : ""}</div><p>원작 <strong>${esc(r.original)}</strong> <span aria-hidden="true">·</span> 처음 추천 <strong>${esc(r.start)}</strong></p>${renderAccess(r)}${r.tags?.length ? `<div class="detail-tags">${r.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}${r.aliases.length ? `<p>다른 이름: ${r.aliases.map(esc).join(", ")}</p>` : ""}${r.note ? `<p>${esc(r.note)}</p>` : ""}<div class="sources">${r.evidence.map((e, i) => `<a class="source-link" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer"><span class="source-number" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><span><strong>${esc(e.label)}</strong><small>${esc(e.scope)}</small></span><span aria-hidden="true">↗</span></a>`).join("")}</div><p class="detail-date">자료 확인일 ${esc((r.checkedAt || "2026-10-20").replaceAll("-", "."))}<br>실시간 재고와 국내 OTT 제공 여부는 별도로 확인해 주세요.</p></div></div>
+    <div class="work-detail" id="detail-${r.rank}"${open ? "" : " hidden"}><div class="detail-body"><div class="detail-heading"><span class="detail-label">자료 확인</span><span class="badge${isUncertain(r) ? " unconfirmed" : ""}">${esc(r.check)}</span>${r.animeChecked ? '<span class="badge start">애니 공식 자료 확인</span>' : ""}</div><p>원작 <strong>${esc(r.original)}</strong> <span aria-hidden="true">·</span> 처음 추천 <strong>${esc(r.start)}</strong></p>${renderEntryGuide(r)}${renderAccess(r)}${r.tags?.length ? `<div class="detail-tags">${r.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}${r.aliases.length ? `<p>다른 이름: ${r.aliases.map(esc).join(", ")}</p>` : ""}${r.note ? `<p>${esc(r.note)}</p>` : ""}<div class="sources">${r.evidence.map((e, i) => `<a class="source-link" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer"><span class="source-number" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><span><strong>${esc(e.label)}</strong><small>${esc(e.scope)}</small></span><span aria-hidden="true">↗</span></a>`).join("")}</div>${r.cover ? `<p class="cover-credit">표지: <a href="${esc(r.cover.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(r.cover.source)} 서점 판본 ↗</a> · 원작 또는 등록된 도서 판본의 표지입니다.</p>` : ""}<p class="detail-date">자료 확인일 ${esc((r.checkedAt || "2026-10-20").replaceAll("-", "."))}<br>실시간 재고와 국내 OTT 제공 여부는 별도로 확인해 주세요.</p></div></div>
   </article>`;
 }
 function render() {
   const rows = filtered();
   updateControls(rows);
+  renderPick(rows);
   const emptyShelf = view === "favorites" && !favorites.size;
   $("results").innerHTML = rows.length
     ? rows.slice(0, visibleLimit).map(renderRow).join("")
@@ -333,6 +423,7 @@ function refreshFavorite(id) {
     return;
   }
   updateControls(filtered());
+  renderPick(filtered());
   const button = $("results").querySelector(`[data-rank="${id}"]`);
   if (button) {
     const row = DATA.find((r) => r.rank === id);
