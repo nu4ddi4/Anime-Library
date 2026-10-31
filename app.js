@@ -1,3 +1,70 @@
+// Keep native details/summary semantics and an immediate reduced-motion fallback.
+const running = new WeakMap();
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+function cancelHeight(element) {
+  running.get(element)?.cancel();
+  running.delete(element);
+  element.style.height = "";
+  element.style.overflow = "";
+}
+
+function animateHeight(element, from, to, finish) {
+  cancelHeight(element);
+  if (reducedMotion.matches || !element.animate || from === to) {
+    finish();
+    return;
+  }
+  element.style.overflow = "hidden";
+  const animation = element.animate(
+    [{ height: `${from}px` }, { height: `${to}px` }],
+    { duration: 230, easing: "cubic-bezier(.2,.7,.2,1)" },
+  );
+  running.set(element, animation);
+  animation.onfinish = () => {
+    if (running.get(element) !== animation) return;
+    cancelHeight(element);
+    finish();
+  };
+}
+
+function setDisclosureOpen(details, open, animate = true) {
+  details.dataset.opening = String(open);
+  const from = details.getBoundingClientRect().height;
+  cancelHeight(details);
+  details.open = open;
+  if (!animate) { delete details.dataset.opening; return; }
+  const to = details.getBoundingClientRect().height;
+  // A closing disclosure stays open until its height transition completes.
+  if (!open) details.open = true;
+  animateHeight(details, from, to, () => { details.open = open; delete details.dataset.opening; });
+}
+
+function setPanelOpen(panel, open) {
+  const from = panel.hidden ? 0 : panel.getBoundingClientRect().height;
+  cancelHeight(panel);
+  panel.hidden = false;
+  const to = open ? panel.getBoundingClientRect().height : 0;
+  // Remove closing links from keyboard navigation immediately.
+  panel.inert = !open;
+  animateHeight(panel, from, to, () => { panel.hidden = !open; });
+}
+
+for (const details of document.querySelectorAll("details")) {
+  details.querySelector(":scope > summary")?.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.target.closest("a,button,input")) return;
+    if (details.id === "filterPanel" && !matchMedia("(max-width:740px)").matches) return;
+    event.preventDefault();
+    const opening = details.dataset.opening === "false" ||
+      (details.dataset.opening !== "true" && !details.open);
+    details.dataset.opening = String(opening);
+    setDisclosureOpen(details, opening);
+  });
+  details.addEventListener("toggle", () => {
+    if (!running.has(details)) delete details.dataset.opening;
+  });
+}
+
 const DATA = JSON.parse(document.getElementById("dataset").textContent);
 const CHANGES = JSON.parse(document.getElementById("changelog").textContent);
 const $ = (id) => document.getElementById(id);
@@ -68,7 +135,7 @@ $("verification").options[4].textContent =
   `추가 확인 · 보류 (${DATA.filter(isUncertain).length}편)`;
 const mobile = matchMedia("(max-width:740px)");
 function updateFilterPanel() {
-  $("filterPanel").open = !mobile.matches;
+  setDisclosureOpen($("filterPanel"), !mobile.matches, false);
 }
 mobile.addEventListener("change", updateFilterPanel);
 updateFilterPanel();
@@ -170,7 +237,7 @@ function updateControls(rows) {
     ? `${filters.length}개의 조건으로 찾은 이야기예요.`
     : view === "favorites" && !favorites.size
       ? "별표로 마음에 든 작품을 모아보세요."
-      : "제목을 누르면 작품 정보와 자료를 볼 수 있어요.";
+      : "제목을 누르면 구매·시청 경로와 작품 정보를 볼 수 있어요.";
   $("clear").classList.toggle("hidden", !$("query").value);
   document
     .querySelector(".search-shortcut")
@@ -205,6 +272,15 @@ function updateControls(rows) {
       ? `${rows.length}편 중 ${shown}편 표시`
       : `${rows.length}편 표시`;
 }
+function renderAccess(r) {
+  const routes = r.access || [];
+  const title = encodeURIComponent(r.title);
+  const links = (kind) => routes.filter((link) => link.kind === kind).map((link) =>
+    `<a class="access-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer"><span><strong>${esc(link.service)}</strong><small>${esc(link.edition)}</small><small class="access-date">${esc({"기존 서지":"서지 확인","공식 페이지·본문":"페이지 확인","공식 페이지·검색":"검색 정보 확인"}[link.method])} · ${esc(link.checkedAt.replaceAll('-', '.'))}</small></span><span aria-hidden="true">↗</span></a>`,
+  ).join("");
+  const uncertain = r.original === "미확인" ? '<p class="access-warning">작품을 특정하지 못한 항목입니다. 검색 결과의 제목·저자를 확인해 주세요.</p>' : '';
+  return `<section class="access-guide" aria-label="${esc(r.title)} 구매와 시청 경로"><div class="access-heading"><h3>어디서 볼까요?</h3><span>국내 서비스 기준</span></div>${uncertain}<div class="access-columns"><div class="access-group"><h4>책으로 읽기</h4>${links('book') || '<p class="access-empty">등록된 서점 상품 페이지가 없어요.</p>'}<div class="access-search"><a href="https://ridibooks.com/search?keyword=${title}" target="_blank" rel="noopener noreferrer">리디 검색 ↗</a><a href="https://www.yes24.com/Product/Search?domain=ALL&amp;query=${title}" target="_blank" rel="noopener noreferrer">YES24 검색 ↗</a></div></div><div class="access-group"><h4>영상으로 보기</h4>${links('watch') || '<p class="access-empty">등록된 OTT 작품 페이지가 없어요.</p>'}<div class="access-search"><a href="https://www.justwatch.com/kr/search?q=${title}" target="_blank" rel="noopener noreferrer">OTT 통합 검색 ↗</a><a href="https://laftel.net/search?keyword=${title}" target="_blank" rel="noopener noreferrer">라프텔 검색 ↗</a></div></div></div><p class="access-note">작품 페이지 안내입니다. 현재 판매·시청 가능 여부와 가격, 권수·시즌·자막·더빙은 각 서비스에서 확인해 주세요. 검색 링크는 입점·제공을 뜻하지 않습니다.</p></section>`;
+}
 function renderRow(r) {
   const fav = favorites.has(r.rank);
   const open = expanded.has(r.rank);
@@ -213,7 +289,7 @@ function renderRow(r) {
     <div class="work-main"><button class="work-title" type="button" data-detail="${r.rank}" aria-expanded="${open}" aria-controls="detail-${r.rank}" aria-label="${esc(r.title)} 작품 정보"><span class="title">${esc(r.title)}</span>${chevron}</button><div class="sub"><span class="genre-tags">${esc(r.genres.length ? r.genres.join(" · ") : "분류 보류")}</span><span class="sub-separator medium-label" aria-hidden="true"></span><span class="medium-label">${esc(r.original)} 원작</span>${isUncertain(r) ? '<span class="status-uncertain">· 확인 보류</span>' : ""}</div></div>
     <span class="badge original">${esc(r.original)}</span><span class="badge start${r.start === "미확인" ? " unconfirmed" : ""}" aria-label="${esc(r.start)} 입문 추천">${r.start === "미확인" ? "미확인" : esc(r.start) + "부터"}</span>
     <button class="star" type="button" data-rank="${r.rank}" aria-pressed="${fav}" aria-label="${esc(r.title)} 관심 ${fav ? "해제" : "등록"}">${starIcon}</button>
-    <div class="work-detail" id="detail-${r.rank}"${open ? "" : " hidden"}><div class="detail-heading"><span class="detail-label">자료 확인</span><span class="badge${isUncertain(r) ? " unconfirmed" : ""}">${esc(r.check)}</span>${r.animeChecked ? '<span class="badge start">애니 공식 자료 확인</span>' : ""}</div><p>원작 <strong>${esc(r.original)}</strong> <span aria-hidden="true">·</span> 처음 추천 <strong>${esc(r.start)}</strong></p>${r.tags?.length ? `<div class="detail-tags">${r.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}${r.aliases.length ? `<p>다른 이름: ${r.aliases.map(esc).join(", ")}</p>` : ""}${r.note ? `<p>${esc(r.note)}</p>` : ""}<div class="sources">${r.evidence.map((e, i) => `<a class="source-link" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer"><span class="source-number" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><span><strong>${esc(e.label)}</strong><small>${esc(e.scope)}</small></span><span aria-hidden="true">↗</span></a>`).join("")}</div><p class="detail-date">자료 확인일 ${esc((r.checkedAt || "2026-10-20").replaceAll("-", "."))}<br>실시간 재고와 국내 OTT 제공 여부는 별도로 확인해 주세요.</p></div>
+    <div class="work-detail" id="detail-${r.rank}"${open ? "" : " hidden"}><div class="detail-body"><div class="detail-heading"><span class="detail-label">자료 확인</span><span class="badge${isUncertain(r) ? " unconfirmed" : ""}">${esc(r.check)}</span>${r.animeChecked ? '<span class="badge start">애니 공식 자료 확인</span>' : ""}</div><p>원작 <strong>${esc(r.original)}</strong> <span aria-hidden="true">·</span> 처음 추천 <strong>${esc(r.start)}</strong></p>${renderAccess(r)}${r.tags?.length ? `<div class="detail-tags">${r.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}${r.aliases.length ? `<p>다른 이름: ${r.aliases.map(esc).join(", ")}</p>` : ""}${r.note ? `<p>${esc(r.note)}</p>` : ""}<div class="sources">${r.evidence.map((e, i) => `<a class="source-link" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer"><span class="source-number" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><span><strong>${esc(e.label)}</strong><small>${esc(e.scope)}</small></span><span aria-hidden="true">↗</span></a>`).join("")}</div><p class="detail-date">자료 확인일 ${esc((r.checkedAt || "2026-10-20").replaceAll("-", "."))}<br>실시간 재고와 국내 OTT 제공 여부는 별도로 확인해 주세요.</p></div></div>
   </article>`;
 }
 function render() {
@@ -316,7 +392,7 @@ $("results").addEventListener("click", (e) => {
     const isOpen = !expanded.has(id);
     isOpen ? expanded.add(id) : expanded.delete(id);
     detailButton.setAttribute("aria-expanded", String(isOpen));
-    $(`detail-${id}`).hidden = !isOpen;
+    setPanelOpen($(`detail-${id}`), isOpen);
     detailButton.closest(".row").classList.toggle("is-open", isOpen);
     return;
   }
@@ -375,7 +451,7 @@ $("loadMore").addEventListener("click", () => {
   });
 });
 $("reviewLink").addEventListener("click", () => {
-  $("review").open = true;
+  setDisclosureOpen($("review"), true);
 });
 document.addEventListener("keydown", (event) => {
   const editing = event.target.closest(
