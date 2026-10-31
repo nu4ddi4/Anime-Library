@@ -7,7 +7,8 @@
     "build": "node scripts/build.mjs",
     "preview": "python3 -m http.server 4174 --directory dist",
     "validate:catalog": "node scripts/catalog.mjs",
-    "test": "node scripts/build.mjs && node --test scripts/catalog.test.mjs"
+    "test": "node scripts/build.mjs && node --test scripts/*.test.mjs",
+    "validate:review": "node scripts/media-review.mjs"
   },
   "engines": {
     "node": ">=22"

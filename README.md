@@ -15,6 +15,7 @@
 
 - **[CSV 다운로드](https://github.com/nu4ddi4/Anime-Library/raw/refs/heads/main/public/anime-library.csv)** · [GitHub에서 표로 보기](public/anime-library.csv)
 - **[사이트에서 CSV 받기](https://ani.feentn.com/anime-library.csv)**
+- **[입문 매체 재평가 CSV](public/media-review.csv)** · [조사 결과·변경 이유·보류 목록](docs/media-review/README.md)
 
 엑셀에서는 파일을 열고, 구글 시트에서는 **파일 → 가져오기 → 업로드**로 CSV를 선택하세요. 한글 호환을 위해 UTF-8 BOM을 포함합니다. 여러 장르·태그·별칭은 ` / `로 구분하며, 근거 자료마다 이름·URL·확인 범위를 별도 열에 담습니다. `애니 추천 공식 자료 확인`의 `해당 없음`은 애니가 없다는 뜻이 아니라 해당 확인 대상이 아니라는 뜻입니다.
 
@@ -25,6 +26,8 @@
 - 제목, 메모 등에 쉼표·따옴표·줄바꿈이 있으면 엑셀·시트의 CSV 내보내기를 사용해 필드를 올바르게 인용하세요.
 - `npm run validate:catalog`로 중복 번호·누락 열·장르·날짜·자료 링크를 확인합니다. 잘못된 CSV는 빌드가 실패하며 기존 운영 배포가 유지됩니다.
 - `세부 장르(원본)` 열은 첨부 파일의 예전 분류를 보존합니다. 사이트의 장르 필터는 `장르` 열을 사용합니다.
+
+입문 매체 재평가는 별도 `public/media-review.csv`에 근거를 관리합니다. 기존 178편의 추천 매체를 수정할 때는 이 파일의 재평가 값·판정·이유·출처도 함께 갱신하세요. `npm run validate:review`와 빌드가 두 CSV의 추천 값·작품 식별자를 대조합니다. 장르·태그 등 일반 메타데이터는 기존 원본 CSV에서 수정합니다. 변경 전 스냅샷은 `docs/media-review/baseline/`에 보존하며 수정하지 않습니다.
 
 ## 실행
 

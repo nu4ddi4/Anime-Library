@@ -1,0 +1,15 @@
+{
+  "commit": "625e09d5c8e71ef9e6231dce98b66bd0cb9a6168",
+  "sha256": "0a204b7fe1d56cbff8ea823defb40171ab653f42b32c8dca78cc3ca23331f6fa",
+  "rows": 178,
+  "columns": 19,
+  "duplicate_ids": 0,
+  "duplicate_titles": 0,
+  "missing_required": {
+    "추천 순서": 0,
+    "작품명": 0,
+    "원작 매체": 0,
+    "입문 추천 매체": 0,
+    "자료 기준일": 0
+  }
+}

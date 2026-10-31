@@ -1,6 +1,8 @@
 import { readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises';
 import { loadCatalog, catalogMarkdown } from './catalog.mjs';
+import { validateReviewFiles } from './media-review.mjs';
 
+await validateReviewFiles();
 const records = await loadCatalog();
 const template = await readFile('index.html', 'utf8');
 if (!template.includes('__CATALOG_DATA__')) throw new Error('Catalog placeholder missing.');
@@ -16,6 +18,7 @@ const css = await readFile('styles.css', 'utf8');
 const js = await readFile('app.js', 'utf8');
 const favicon = await readFile('public/favicon.svg', 'utf8');
 const csv = await readFile('public/anime-library.csv');
+const reviews = await readFile('public/media-review.csv');
 const catalog = Buffer.from(catalogMarkdown(records), 'utf8');
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist');
@@ -28,6 +31,7 @@ const offline = html
   .replace('<script src="./app.js"></script>', () => `<script>${js}</script>`)
   .replaceAll('./catalog.md', `data:text/markdown;charset=utf-8;base64,${catalog.toString('base64')}`)
   .replaceAll('./anime-library.csv', `data:text/csv;charset=utf-8;base64,${csv.toString('base64')}`)
+  .replaceAll('./media-review.csv', `data:text/csv;charset=utf-8;base64,${reviews.toString('base64')}`)
   .replaceAll('./favicon.svg', `data:image/svg+xml,${encodeURIComponent(favicon)}`)
   .replace('href="./shelf.html"', 'href=""');
 await writeFile('dist/shelf.html', offline);

@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-31",
+  "baselineCommit": "625e09d5c8e71ef9e6231dce98b66bd0cb9a6168",
+  "baselineSha256": "0a204b7fe1d56cbff8ea823defb40171ab653f42b32c8dca78cc3ca23331f6fa",
+  "records": 178,
+  "originalColumns": 19,
+  "reviewColumns": 24,
+  "protectedIdentityAndOriginalDatesPreserved": true,
+  "utf8BomCrLfRecordSeparatorsAndRectangularCsv": true,
+  "note": "인용 필드 내부의 URL 구분 줄바꿈은 LF; CSV 레코드 구분은 CRLF",
+  "statusCounts": {
+    "보류": 148,
+    "경합": 13,
+    "변경 권고": 3,
+    "유지 권고": 14
+  },
+  "catalogDiff": [
+    {
+      "id": "6",
+      "title": "86 -에이티식스-",
+      "fields": {
+        "입문 추천 매체": {
+          "before": "소설",
+          "after": "애니"
+        },
+        "애니 추천 공식 자료 확인": {
+          "before": "해당 없음",
+          "after": "확인"
+        },
+        "자료 2 이름": {
+          "before": "",
+          "after": "애니메이션 공식 자료(입문 재평가)"
+        },
+        "자료 2 URL": {
+          "before": "",
+          "after": "https://anime-86.com/story/"
+        },
+        "자료 2 확인 범위": {
+          "before": "",
+          "after": "공식 애니 판본의 존재 확인. 문헌 비교에 따른 추천 재평가일: 2026-10-31. 원작 전체 완결·국내 OTT 제공 여부를 뜻하지 않습니다."
+        }
+      }
+    },
+    {
+      "id": "18",
+      "title": "약사의 혼잣말",
+      "fields": {
+        "입문 추천 매체": {
+          "before": "소설",
+          "after": "애니"
+        },
+        "애니 추천 공식 자료 확인": {
+          "before": "해당 없음",
+          "after": "확인"
+        },
+        "자료 2 이름": {
+          "before": "",
+          "after": "애니메이션 공식 자료(입문 재평가)"
+        },
+        "자료 2 URL": {
+          "before": "",
+          "after": "https://www.bs4.jp/kusuriyanohitorigoto/"
+        },
+        "자료 2 확인 범위": {
+          "before": "",
+          "after": "공식 애니 판본의 존재 확인. 문헌 비교에 따른 추천 재평가일: 2026-10-31. 원작 전체 완결·국내 OTT 제공 여부를 뜻하지 않습니다."
+        }
+      }
+    },
+    {
+      "id": "82",
+      "title": "블루 록",
+      "fields": {
+        "입문 추천 매체": {
+          "before": "애니",
+          "after": "만화"
+        }
+      }
+    }
+  ],
+  "automatedTests": {
+    "command": "npm test",
+    "passed": 6,
+    "failed": 0
+  },
+  "browser": {
+    "date": "2026-10-31",
+    "browser": "Chromium",
+    "records": 178,
+    "officialAnimeEvidence": 66,
+    "checks": [
+      "canonical dataset equality",
+      "three changed entry-medium badges",
+      "eight genre filters/counts",
+      "search and combined filters",
+      "sorting",
+      "pagination and focus",
+      "favorite persistence, undo, backup import/export, cross-tab sync",
+      "existing favorite IDs 6/18/82 survive recommendation changes",
+      "review CSV browser download exact bytes",
+      "offline CSV exact bytes and changed badges",
+      "responsive 320/360/390/650/740/768/1024/1440 widths without horizontal overflow",
+      "no page JavaScript errors"
+    ]
+  }
+}
