@@ -60,7 +60,19 @@ export function readCatalog(csv) {
       if (!['https:', 'http:'].includes(parsed.protocol) || !label) fail(`${header} requires an HTTP(S) URL and a source name`);
       evidence.push({label, url, scope});
     }
-    return {rank, title:r['작품명'], original:r['원작 매체'], start:r['입문 추천 매체'], note:r['메모'], aliases:split(r['다른 이름']), evidence, check:r['자료 확인 상태'], mediumCheck:r['매체 대조'], animeChecked:r['애니 추천 공식 자료 확인'] === '확인', genre:r['세부 장르(원본)'] || '', tags:split(r['태그']), genres:rowGenres, checkedAt:date};
+    const access = [];
+    for (const header of headers.filter(h => /^(서점|OTT) \d+ URL$/.test(h))) {
+      const prefix = header.replace(' URL', '');
+      const [service, url, edition, method, checkedAt] = ['이름', 'URL', '판본', '확인 방식', '확인일'].map(key => r[`${prefix} ${key}`] || '');
+      if (![service, url, edition, method, checkedAt].some(Boolean)) continue;
+      let parsed;
+      try { parsed = new URL(url); } catch { fail(`${prefix} requires an absolute URL`); }
+      if (parsed.protocol !== 'https:' || !service.trim() || !edition.trim()) fail(`${prefix} requires HTTPS, service and edition`);
+      if (!['기존 서지', '공식 페이지·본문', '공식 페이지·검색'].includes(method)) fail(`${prefix} has an unknown verification method`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(checkedAt) || !Number.isFinite(Date.parse(checkedAt)) || new Date(checkedAt).toISOString().slice(0, 10) !== checkedAt) fail(`${prefix} has an invalid 확인일`);
+      access.push({kind:prefix.startsWith('서점') ? 'book' : 'watch', service, url, edition, method, checkedAt});
+    }
+    return {rank, title:r['작품명'], original:r['원작 매체'], start:r['입문 추천 매체'], note:r['메모'], aliases:split(r['다른 이름']), evidence, access, check:r['자료 확인 상태'], mediumCheck:r['매체 대조'], animeChecked:r['애니 추천 공식 자료 확인'] === '확인', genre:r['세부 장르(원본)'] || '', tags:split(r['태그']), genres:rowGenres, checkedAt:date};
   });
 }
 export async function loadCatalog() { return readCatalog(await readFile('public/anime-library.csv', 'utf8')); }

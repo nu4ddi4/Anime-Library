@@ -34,3 +34,19 @@ test('website, standalone HTML and downloadable CSV use the same canonical recor
   }
   assert.equal(await readFile('dist/anime-library.csv','utf8'), csv);
 });
+test('access routes keep dated editions and reject incomplete or unsafe destinations', () => {
+  const data = readCatalog(csv);
+  assert.ok(data.filter(r => r.access.some(a => a.kind === 'book')).length >= 160);
+  assert.ok(data.filter(r => r.access.some(a => a.kind === 'watch')).length >= 130);
+  const jellyfish = data.find(r => r.rank === 107).access.find(a => a.kind === 'watch');
+  assert.equal(jellyfish.url, 'https://www.tving.com/contents/P001780465');
+  assert.match(jellyfish.edition, /^애니/);
+  assert.equal(data.find(r => r.rank === 151).access.length, 0);
+  assert.equal(data.find(r => r.rank === 115).access.filter(a => a.kind === 'watch').length, 0);
+  for (const [field,value] of [['서점 1 URL','javascript:alert(1)'],['서점 1 이름',''],['서점 1 확인일','2026-02-30'],['서점 1 확인 방식','판매 중']]) {
+    assert.throws(() => readCatalog(mutated(field,value)), /CSV row/);
+  }
+  // Older CSVs without optional access columns remain valid.
+  const legacy = rows.map(row => row.slice(0,19));
+  assert.ok(readCatalog(encode(legacy)).every(r => r.access.length === 0));
+});

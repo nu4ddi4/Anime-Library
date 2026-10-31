@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-01",
+  "browser": "Chromium",
+  "checks": [
+    "sidebar final download reachable at heights 480/600/720/900",
+    "normal open/close and rapid reversal animations",
+    "keyboard Enter toggles native disclosures",
+    "immediate reduced-motion transitions",
+    "book and OTT cards, title-encoded search URLs, unverified identity notice",
+    "downloaded CSV equals canonical bytes",
+    "offline HTML includes access routes and embedded updated CSV",
+    "open access cards have no horizontal overflow at 8 widths",
+    "WCAG 2 A/AA and WCAG 2.1 AA axe scan: 0 violations",
+    "no JavaScript errors"
+  ],
+  "automatedTests": {
+    "command": "npm test",
+    "passed": 4,
+    "failed": 0
+  },
+  "data": {
+    "records": 178,
+    "columns": 29,
+    "original19ColumnsUnchanged": true,
+    "bookRoutes": 166,
+    "ottRoutes": 135,
+    "ottBodyConfirmed": 133,
+    "ottSearchOnly": 2,
+    "utf8BomAndCrLf": true
+  },
+  "regression": "Existing full UI regression passed: favorites persistence/undo/backup/cross-tab, filters, sort, keyboard, source links, offline, 8 widths"
+}
