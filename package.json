@@ -1,0 +1,11 @@
+{
+  "name": "anime-library",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "python3 -m http.server 4174 --directory dist"
+  },
+  "engines": { "node": ">=22" }
+}
