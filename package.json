@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "preview": "python3 -m http.server 4174 --directory dist"
+    "preview": "python3 -m http.server 4174 --directory dist",
+    "validate:catalog": "node scripts/catalog.mjs",
+    "test": "node scripts/build.mjs && node --test scripts/catalog.test.mjs"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

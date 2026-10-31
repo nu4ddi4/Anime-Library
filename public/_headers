@@ -3,3 +3,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/anime-library.csv
+  Content-Type: text/csv; charset=utf-8
+  Content-Disposition: attachment; filename="anime-library.csv"
