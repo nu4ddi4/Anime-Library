@@ -50,3 +50,17 @@ test('access routes keep dated editions and reject incomplete or unsafe destinat
   const legacy = rows.map(row => row.slice(0,19));
   assert.ok(readCatalog(encode(legacy)).every(r => r.access.length === 0));
 });
+test('covers require the same verified edition and carry into both catalog snapshots', async () => {
+  const data = readCatalog(csv);
+  assert.equal(data.filter(r => r.cover).length, 39);
+  assert.equal(data.find(r => r.rank === 151).cover, null);
+  for (const [field, value] of [['표지 이미지 URL','javascript:alert(1)'], ['표지 이미지 URL','https://example.com/cover.jpg'], ['표지 출처 URL','https://ridibooks.com/books/999'], ['표지 확인일','2026-02-30']]) {
+    assert.throws(() => readCatalog(mutated(field,value)), /CSV row/);
+  }
+  const html = await readFile('dist/index.html','utf8');
+  const reviews = JSON.parse(html.match(/<script id="entry-reviews" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(reviews.length,30);
+  assert.ok(reviews.every(r => r.status !== '보류' && r.reason && r.scope && r.counter && r.sources.length >= 2));
+  assert.ok(!html.includes('__ENTRY_REVIEW_'));
+  assert.match(await readFile('dist/shelf.html','utf8'), /<body data-offline="true">/);
+});

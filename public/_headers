@@ -7,3 +7,7 @@
 /anime-library.csv
   Content-Type: text/csv; charset=utf-8
   Content-Disposition: attachment; filename="anime-library.csv"
+
+/media-review.csv
+  Content-Type: text/csv; charset=utf-8
+  Content-Disposition: attachment; filename="media-review.csv"

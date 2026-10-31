@@ -72,7 +72,17 @@ export function readCatalog(csv) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(checkedAt) || !Number.isFinite(Date.parse(checkedAt)) || new Date(checkedAt).toISOString().slice(0, 10) !== checkedAt) fail(`${prefix} has an invalid 확인일`);
       access.push({kind:prefix.startsWith('서점') ? 'book' : 'watch', service, url, edition, method, checkedAt});
     }
-    return {rank, title:r['작품명'], original:r['원작 매체'], start:r['입문 추천 매체'], note:r['메모'], aliases:split(r['다른 이름']), evidence, access, check:r['자료 확인 상태'], mediumCheck:r['매체 대조'], animeChecked:r['애니 추천 공식 자료 확인'] === '확인', genre:r['세부 장르(원본)'] || '', tags:split(r['태그']), genres:rowGenres, checkedAt:date};
+    let cover = null;
+    const [image, source, sourceUrl, coverDate] = ['표지 이미지 URL', '표지 출처 이름', '표지 출처 URL', '표지 확인일'].map(key => r[key] || '');
+    if ([image, source, sourceUrl, coverDate].some(Boolean)) {
+      let imageUrl, sourcePage;
+      try { imageUrl = new URL(image); sourcePage = new URL(sourceUrl); } catch { fail('cover requires absolute image and source URLs'); }
+      if (imageUrl.protocol !== 'https:' || imageUrl.hostname !== 'img.ridicdn.net' || !/^\/cover\/\d+\/small$/.test(imageUrl.pathname)) fail('cover must use a verified small RIDI thumbnail');
+      if (sourcePage.protocol !== 'https:' || sourcePage.hostname !== 'ridibooks.com' || sourcePage.pathname !== `/books/${imageUrl.pathname.split('/')[2]}` || !source.trim()) fail('cover source must match the verified edition');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(coverDate) || !Number.isFinite(Date.parse(coverDate)) || new Date(coverDate).toISOString().slice(0, 10) !== coverDate) fail('invalid cover date');
+      cover = {image, source, sourceUrl, checkedAt:coverDate};
+    }
+    return {rank, title:r['작품명'], original:r['원작 매체'], start:r['입문 추천 매체'], note:r['메모'], aliases:split(r['다른 이름']), evidence, access, cover, check:r['자료 확인 상태'], mediumCheck:r['매체 대조'], animeChecked:r['애니 추천 공식 자료 확인'] === '확인', genre:r['세부 장르(원본)'] || '', tags:split(r['태그']), genres:rowGenres, checkedAt:date};
   });
 }
 export async function loadCatalog() { return readCatalog(await readFile('public/anime-library.csv', 'utf8')); }

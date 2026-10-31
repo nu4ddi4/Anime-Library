@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-01",
+  "browser": "Chromium",
+  "records": 178,
+  "covers": 39,
+  "tests": [
+    "8 automated tests pass",
+    "provider and access-type filters with genre intersection",
+    "cross-field multi-term search and escaped queries",
+    "30 literature-review entries; three updated entry media",
+    "unstarred-first random pick; no immediate repeat; current conditions respected",
+    "recommendation reset on changed conditions; unknown identity excluded",
+    "open a chosen work beyond page 1 with keyboard focus",
+    "source limits and counterarguments displayed",
+    "8 responsive widths and short desktop sidebar",
+    "0 axe WCAG A/AA violations",
+    "offline recommendation/details work without HTTP image requests",
+    "blocked cover fallback preserves layout and no JS errors"
+  ],
+  "csv": {
+    "columns": 33,
+    "utf8Bom": true,
+    "recordCount": 178,
+    "imageUrlFields": 39,
+    "canonicalSha256": "8e083e83c45a5b21d8ba7d737fee3d942fab2fef8b3bf4555fd8a63def2ed165"
+  }
+}
